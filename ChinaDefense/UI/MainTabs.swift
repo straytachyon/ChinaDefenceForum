@@ -61,7 +61,9 @@ private struct SidebarTabStyle: ViewModifier {
         if UIDevice.current.userInterfaceIdiom == .pad {
             content.tabViewStyle(.sidebarAdaptable)
         } else {
-            content
+            // Plain tab bar: the adaptive style adds its own navigation bar on
+            // top of a thread's NavigationStack on iPhone.
+            content.tabViewStyle(.tabBarOnly)
         }
     }
 }

@@ -47,6 +47,7 @@ struct TopicListContent: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .background(MoreBackButtonHider())
         .toolbar {
             if let board = mode.board {
                 ToolbarItem(placement: .topBarLeading) {
@@ -340,4 +341,38 @@ struct TopicRow: View {
 
 extension Notification.Name {
     static let topicDidClose = Notification.Name("ChinaDefense.topicDidClose")
+}
+
+
+/// The iPhone tab bar moves extra tabs into UIKit's "More" controller, which
+/// pushes each tab inside its own navigation stack and shows a back button to
+/// the More list. That extra button sits above a thread's own back button, so
+/// hide it on the More controller's current item.
+private struct MoreBackButtonHider: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            hideMoreBackButton()
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            hideMoreBackButton()
+        }
+
+        private func hideMoreBackButton() {
+            var current: UIViewController? = self
+            while let controller = current {
+                if let navigation = controller as? UINavigationController,
+                   let tabBar = navigation.tabBarController,
+                   tabBar.moreNavigationController === navigation {
+                    navigation.topViewController?.navigationItem.hidesBackButton = true
+                }
+                current = controller.parent
+            }
+        }
+    }
 }
