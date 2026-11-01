@@ -7,8 +7,7 @@ struct ChinaDefenseApp: App {
     @State private var settings = AppSettings()
 
     var body: some Scene {
-        WindowGroup
-        {
+        WindowGroup {
             RootView()
                 .environment(session)
                 .tint(AppTheme.accent)
