@@ -27,6 +27,9 @@ pages. Logins, sessions and cookies stay between the app and the forum.
   strikethrough, quote, code, bullet/numbered lists, link, image, YouTube, size, colour,
   alignment, spoiler, table, super/subscript, font face, smileys) and has a
   server-rendered **Preview** before posting.
+- **File attachments** — the paperclip in the editor attaches files to a reply or new
+  topic (multiple files, 25 MB each); they upload with the post as SMF attachments.
+  Attachments are listed in the composer and Preview shows their names.
 - **Reorderable board tabs** — the ↑↓ button in the list toolbar (or Settings →
   Arrange Board Tabs) opens a list where boards move up/down. "Unread" stays pinned
   first; the order is saved and restored on launch, with a reset to forum order.
@@ -110,8 +113,8 @@ then verify by reading `smf_member_id` from the resulting page.
 
 - **Unofficial.** Not affiliated with the forum or its operators. Respect the
   forum's rules and rate limits.
-- Posting is supported (replies and new topics); editing existing posts, polls,
-  attachments/uploads, search and private messages still use the web view.
+- Posting is supported (replies, new topics and file attachments); editing existing
+  posts, polls, search and private messages still use the web view.
 - Parsing depends on SMF 2.1.x's stock theme markup. A theme change could require
   selector updates.
 - The app is non-functional without an account because the forum does not allow

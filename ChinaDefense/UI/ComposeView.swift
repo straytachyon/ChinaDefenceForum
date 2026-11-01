@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// New topic / reply composer with SMF's BBCode formatting tools, server-rendered
 /// preview and post submission.
@@ -22,6 +23,9 @@ struct ComposeView: View {
 
     @State private var showYouTubeDialog = false
     @State private var youtubeURL = ""
+
+    @State private var attachments: [AttachmentUpload] = []
+    @State private var showFileImporter = false
 
     init(mode: PostComposer.Mode, onPosted: @escaping (PostOutcome) -> Void = { _ in }) {
         self.mode = mode
@@ -67,15 +71,31 @@ struct ComposeView: View {
                         Button("Post") {
                             Task { await post() }
                         }
-                        .disabled(!model.canSubmit)
+                        .disabled(!canPost)
                         .fontWeight(.semibold)
                     }
                 }
             }
             .task { await model.load(session: session) }
+            .fileImporter(
+                isPresented: $showFileImporter,
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    addFiles(urls)
+                case .failure(let error):
+                    model.errorMessage = error.localizedDescription
+                }
+            }
             .sheet(isPresented: $showPreview) {
                 if let preview = model.preview {
-                    PreviewSheet(subject: preview.subject, content: preview.content)
+                    PreviewSheet(
+                        subject: preview.subject,
+                        content: preview.content,
+                        attachmentNames: attachments.map(\.fileName)
+                    )
                 }
             }
             .alert("Insert Link", isPresented: $showLinkDialog) {
@@ -104,7 +124,7 @@ struct ComposeView: View {
                 Button("Cancel", role: .cancel) {}
                 Button("Insert") { insertImage() }
             } message: {
-                Text("Paste the image URL. Forum attachments need to be uploaded in a browser.")
+                Text("Paste the image URL.")
             }
         }
     }
@@ -152,6 +172,39 @@ struct ComposeView: View {
                             .padding(.top, 20)
                             .padding(.leading, 15)
                             .allowsHitTesting(false)
+                    }
+                }
+
+                if !attachments.isEmpty {
+                    VStack(spacing: 6) {
+                        ForEach(attachments) { file in
+                            HStack(spacing: 10) {
+                                Image(systemName: "doc.fill")
+                                    .foregroundStyle(AppTheme.accent)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(file.fileName)
+                                        .font(.caption.weight(.medium))
+                                        .lineLimit(1)
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(file.data.count), countStyle: .file))
+                                        .font(.caption2)
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                Spacer(minLength: 0)
+                                Button {
+                                    attachments.removeAll { $0.id == file.id }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove \(file.fileName)")
+                            }
+                            .padding(10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                            )
+                        }
                     }
                 }
 
@@ -205,6 +258,7 @@ struct ComposeView: View {
                 formatButton("link", "Insert link") { showLinkDialog = true }
                 formatButton("photo", "Insert image") { showImageDialog = true }
                 formatButton("play.rectangle", "Insert YouTube video") { showYouTubeDialog = true }
+                formatButton("paperclip", "Attach file") { showFileImporter = true }
 
                 Menu {
                     ForEach(["8pt", "10pt", "12pt", "14pt", "18pt", "24pt"], id: \.self) { size in
@@ -315,8 +369,30 @@ struct ComposeView: View {
         imageURL = ""
     }
 
+    private var canPost: Bool {
+        guard model.form != nil, !model.isSubmitting else { return false }
+        let hasBody = !model.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+        let hasSubject = !model.isNewTopic || !model.subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasBody && hasSubject
+    }
+
+    private func addFiles(_ urls: [URL]) {
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            guard data.count <= 25 * 1024 * 1024 else {
+                model.errorMessage = "\(url.lastPathComponent) is too large (maximum 25 MB)."
+                continue
+            }
+            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
+                ?? "application/octet-stream"
+            attachments.append(AttachmentUpload(fileName: url.lastPathComponent, mimeType: mime, data: data))
+        }
+    }
+
     private func post() async {
-        guard let outcome = await model.submit(session: session) else { return }
+        guard let outcome = await model.submit(session: session, attachments: attachments) else { return }
         onPosted(outcome)
         dismiss()
     }
@@ -325,6 +401,7 @@ struct ComposeView: View {
 private struct PreviewSheet: View {
     let subject: String
     let content: PostContent
+    var attachmentNames: [String] = []
     @Environment(\.dismiss) private var dismiss
     @Environment(AppSettings.self) private var settings
 
@@ -356,6 +433,22 @@ private struct PreviewSheet: View {
 
                     if !content.images.isEmpty {
                         PostImageGrid(urls: content.images)
+                    }
+
+                    if !attachmentNames.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Attachments")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.secondaryText)
+                            ForEach(attachmentNames, id: \.self) { name in
+                                Label(name, systemImage: "doc.fill")
+                                    .font(.caption)
+                            }
+                            Text("Files are uploaded when you tap Post.")
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
+                        .padding(.top, 4)
                     }
                 }
                 .frame(maxWidth: 720, alignment: .leading)

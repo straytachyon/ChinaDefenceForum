@@ -205,7 +205,8 @@ actor SMFClient {
 
     /// Sends the editor contents. `preview` uses SMF's own preview endpoint, which
     /// renders the BBCode without creating a post.
-    func submitPost(form: PostFormInfo, subject: String, message: String, preview: Bool) async throws -> PostOutcome {
+    func submitPost(form: PostFormInfo, subject: String, message: String, preview: Bool,
+                    attachments: [AttachmentUpload] = []) async throws -> PostOutcome {
         var fields = form.fields
         fields["subject"] = subject
         fields["message"] = message
@@ -219,11 +220,18 @@ actor SMFClient {
 
         var request = URLRequest(url: form.action)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let files = preview ? [] : attachments
+        if files.isEmpty {
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Self.formEncode(fields).data(using: .utf8)
+        } else {
+            let boundary = "ChinaDefense-\(UUID().uuidString)"
+            request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Self.multipartBody(fields: fields, files: files, boundary: boundary)
+        }
         let referer = form.topicID.map { url("action=post;topic=\($0).0") }
             ?? url("action=post;board=\(form.boardID ?? 0).0")
         request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer")
-        request.httpBody = Self.formEncode(fields).data(using: .utf8)
 
         let (data, response) = try await perform(request)
         let html = Self.decode(data, response: response)
@@ -250,6 +258,30 @@ actor SMFClient {
         let topicID = Self.number(after: "topic=", in: finalURL) ?? form.topicID
         let messageID = Self.number(after: "msg", in: finalURL)
         return .posted(topicID: topicID, messageID: messageID)
+    }
+
+    static func multipartBody(fields: [String: String],
+                                      files: [AttachmentUpload],
+                                      boundary: String) -> Data {
+        var body = Data()
+        func append(_ string: String) {
+            body.append(Data(string.utf8))
+        }
+        for (name, value) in fields {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+            append("\(value)\r\n")
+        }
+        for file in files {
+            let safeName = file.fileName.replacingOccurrences(of: "\"", with: "_")
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"attachment[]\"; filename=\"\(safeName)\"\r\n")
+            append("Content-Type: \(file.mimeType)\r\n\r\n")
+            body.append(file.data)
+            append("\r\n")
+        }
+        append("--\(boundary)--\r\n")
+        return body
     }
 
     private static func number(after marker: String, in string: String) -> Int? {

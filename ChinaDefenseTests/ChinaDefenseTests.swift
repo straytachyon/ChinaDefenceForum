@@ -456,6 +456,21 @@ struct TopicParsingTests {
         #expect(!bold.isEmpty)
     }
 
+    @Test func buildsMultipartAttachmentBody() {
+        let body = SMFClient.multipartBody(
+            fields: ["post": "Post", "subject": "Test"],
+            files: [AttachmentUpload(fileName: "a.txt", mimeType: "text/plain", data: Data("hello".utf8))],
+            boundary: "BOUNDARY"
+        )
+        let text = String(decoding: body, as: UTF8.self)
+
+        #expect(text.contains("name=\"post\"\r\n\r\nPost"))
+        #expect(text.contains("name=\"attachment[]\"; filename=\"a.txt\""))
+        #expect(text.contains("Content-Type: text/plain"))
+        #expect(text.contains("hello"))
+        #expect(text.hasSuffix("--BOUNDARY--\r\n"))
+    }
+
     @Test func marksBoldRuns() {
         let page = SMFParser.parseTopic(Fixtures.topic, topicID: 701, start: 0)
         let attributed = page.posts[0].content.text

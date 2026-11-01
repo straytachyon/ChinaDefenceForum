@@ -1,6 +1,13 @@
 import Foundation
 import Observation
 
+struct AttachmentUpload: Identifiable, Sendable {
+    let id = UUID()
+    let fileName: String
+    let mimeType: String
+    let data: Data
+}
+
 enum PostOutcome: Sendable {
     case preview(subject: String, content: PostContent, form: PostFormInfo)
     case posted(topicID: Int?, messageID: Int?)
@@ -113,13 +120,21 @@ final class PostComposer {
         }
     }
 
-    func submit(session: Session) async -> PostOutcome? {
-        guard let form, canSubmit else { return nil }
+    func submit(session: Session, attachments: [AttachmentUpload] = []) async -> PostOutcome? {
+        let hasBody = !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+        let hasSubject = !isNewTopic || !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard let form, hasBody, hasSubject, !isSubmitting else { return nil }
         isSubmitting = true
         defer { isSubmitting = false }
 
         do {
-            let outcome = try await client.submitPost(form: form, subject: subject, message: message, preview: false)
+            let outcome = try await client.submitPost(
+                form: form,
+                subject: subject,
+                message: message,
+                preview: false,
+                attachments: attachments
+            )
             errorMessage = nil
             return outcome
         } catch SMFError.notLoggedIn {
