@@ -30,6 +30,13 @@ pages. Logins, sessions and cookies stay between the app and the forum.
 - **File attachments** — the paperclip in the editor attaches files to a reply or new
   topic (multiple files, 25 MB each); they upload with the post as SMF attachments.
   Attachments are listed in the composer and Preview shows their names.
+- **Likes** — posts show SMF's like count and a heart; tap to like or unlike
+  (when the forum has likes enabled and your group is allowed to use them).
+- **Notifications** — the bell in the list toolbar shows the unread SMF alert count
+  and opens a native list of quotes, mentions and likes; "View All" opens SMF's
+  full alerts page.
+- **Live unread** — the Unread tab refreshes every minute while the app is open and
+  when the app returns to the foreground.
 - **Reorderable board tabs** — the ↑↓ button in the list toolbar (or Settings →
   Arrange Board Tabs) opens a list where boards move up/down. "Unread" stays pinned
   first; the order is saved and restored on launch, with a reset to forum order.

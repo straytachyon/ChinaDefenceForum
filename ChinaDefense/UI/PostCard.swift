@@ -13,6 +13,7 @@ struct PostCard: View {
     var leadingInset: CGFloat = 0
     var trailingInset: CGFloat = 0
     var onQuote: ((ForumPost) -> Void)?
+    var onLike: ((ForumPost) -> Void)?
 
     private var galleryURLs: [URL] {
         var urls: [URL] = []
@@ -56,6 +57,25 @@ struct PostCard: View {
                 }
 
                 Spacer(minLength: 0)
+
+                if post.canLike || post.likeCount > 0 {
+                    Button {
+                        onLike?(post)
+                    } label: {
+                        HStack(spacing: 2) {
+                            Image(systemName: post.youLike ? "heart.fill" : "heart")
+                            if post.likeCount > 0 {
+                                Text("\(post.likeCount)").monospacedDigit()
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
+                        .frame(minWidth: 30, minHeight: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!post.canLike || onLike == nil)
+                    .accessibilityLabel(post.youLike ? "Unlike post" : "Like post")
+                }
 
                 if let onQuote {
                     Button {

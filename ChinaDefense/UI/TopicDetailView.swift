@@ -69,10 +69,14 @@ struct TopicDetailView: View {
                                 post: post,
                                 topicTitle: model.title,
                                 leadingInset: landscapeInsets.left,
-                                trailingInset: landscapeInsets.right
-                            ) { quoted in
-                                quotingPost = quoted
-                            }
+                                trailingInset: landscapeInsets.right,
+                                onQuote: { quoted in
+                                    quotingPost = quoted
+                                },
+                                onLike: { liked in
+                                    Task { await model.toggleLike(liked, session: session) }
+                                }
+                            )
                             .id(post.id)
                         }
 

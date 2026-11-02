@@ -11,6 +11,8 @@ enum TabID: Hashable {
 /// stay reachable; on iPhone the system tab bar handles overflow with "More".
 struct MainTabs: View {
     @Environment(Session.self) private var session
+    @Environment(AlertsStore.self) private var alerts
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selection: TabID = .unread
     @State private var showSettings = false
@@ -23,6 +25,16 @@ struct MainTabs: View {
             }
             .onChange(of: session.categories) { _, _ in
                 validateSelection()
+            }
+            .task {
+                while !Task.isCancelled {
+                    await alerts.refresh(session: session)
+                    try? await Task.sleep(for: .seconds(90))
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await alerts.refresh(session: session) }
             }
     }
 

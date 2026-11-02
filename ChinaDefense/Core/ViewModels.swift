@@ -204,6 +204,27 @@ final class TopicModel {
         jumpToken += 1
     }
 
+    /// Toggles a post like optimistically, then confirms with SMF.
+    func toggleLike(_ post: ForumPost, session: Session) async {
+        guard post.canLike, let likeURL = post.likeURL,
+              let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+
+        let original = posts[index]
+        var updated = original
+        updated.youLike.toggle()
+        updated.likeCount = max(0, original.likeCount + (updated.youLike ? 1 : -1))
+        posts[index] = updated
+
+        do {
+            try await client.toggleLike(url: likeURL)
+        } catch SMFError.notLoggedIn {
+            posts[index] = original
+            session.sessionExpired()
+        } catch {
+            posts[index] = original
+        }
+    }
+
     /// Jumps to a specific page (1-based), replacing the loaded posts.
     func go(to page: Int, session: Session) async {
         let target = min(max(page, 1), pageCount)

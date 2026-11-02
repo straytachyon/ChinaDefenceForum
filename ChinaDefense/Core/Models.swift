@@ -176,6 +176,10 @@ struct ForumPost: Identifiable, Sendable {
     var postNumber: Int?
     var content: PostContent
     var rawHTML: String
+    var likeCount: Int = 0
+    var canLike: Bool = false
+    var youLike: Bool = false
+    var likeURL: URL? = nil
 
     var profileURL: URL? {
         guard let authorID, authorID > 0 else { return nil }
@@ -203,4 +207,17 @@ struct TopicPage: Sendable {
     }
 
     var hasNextPage: Bool { nextStart != nil }
+}
+
+
+struct ForumAlert: Identifiable, Hashable, Sendable {
+    let id: String
+    let text: String
+    let time: String
+    let url: URL?
+}
+
+struct AlertsSnapshot: Sendable {
+    let unread: Int
+    let items: [ForumAlert]
 }

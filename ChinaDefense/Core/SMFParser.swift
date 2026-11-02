@@ -397,6 +397,18 @@ enum SMFParser {
             .map { $0.serialized() }
             .joined()
         let rawHTML = inner.innerHTML + attachmentsHTML
+
+        let likeAnchor = wrapper.all(where: { $0.tag == "a" && $0.hasClass("msg_like") }).first
+        let canLike = likeAnchor != nil
+        let youLike = likeAnchor?.textContent.lowercased().contains("unlike") ?? false
+        let likeURL = likeAnchor?.href.flatMap { AppConfig.resolve($0) }
+        let likeCountText = wrapper.all(where: { $0.hasClass("like_count") }).first?.textContent ?? ""
+        var likeCount = 0
+        if let match = capture("(\\d[\\d,]*)", in: likeCountText) {
+            likeCount = Int(match[1].replacingOccurrences(of: ",", with: "")) ?? 0
+        }
+        if likeCount == 0 && youLike { likeCount = 1 }
+
         return ForumPost(
             id: postID,
             author: author,
@@ -407,8 +419,34 @@ enum SMFParser {
             date: date,
             postNumber: postNumber,
             content: PostRenderer.render(html: rawHTML),
-            rawHTML: rawHTML
+            rawHTML: rawHTML,
+            likeCount: likeCount,
+            canLike: canLike,
+            youLike: youLike,
+            likeURL: likeURL
         )
+    }
+
+    // MARK: - Alerts
+
+    static func parseAlertPopupCount(_ html: String) -> Int {
+        let document = HTMLParser.parse(html)
+        if document.firstClass("no_unread") != nil { return 0 }
+        return document.all(where: { $0.hasClass("unread_notify") }).count
+    }
+
+    static func parseAlerts(_ html: String) -> [ForumAlert] {
+        let document = HTMLParser.parse(html)
+        return document.allClasses("windowbg").enumerated().compactMap { index, row in
+            guard let textNode = row.firstClass("alert_text") else { return nil }
+            let text = textNode.firstTag("div")?.textContent ?? textNode.textContent
+            guard !text.isEmpty else { return nil }
+            let time = row.firstClass("alert_time")?.textContent
+                ?? row.firstClass("alert_inline_time")?.textContent
+                ?? ""
+            let url = textNode.allTags("a").first?.href.flatMap { AppConfig.resolve($0) }
+            return ForumAlert(id: "\(index)-\(text)", text: text, time: time, url: url)
+        }
     }
 
     // MARK: - Pagination

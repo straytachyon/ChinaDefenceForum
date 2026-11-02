@@ -28,11 +28,14 @@ struct TopicListContent: View {
     var onShowSettings: () -> Void
 
     @Environment(Session.self) private var session
+    @Environment(AlertsStore.self) private var alerts
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var model = TopicListModel()
     @State private var showTabOrder = false
     @State private var showCompose = false
     @State private var hasAppeared = false
+    @State private var showAlerts = false
 
     var body: some View {
         Group {
@@ -61,6 +64,24 @@ struct TopicListContent: View {
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
+                    showAlerts = true
+                } label: {
+                    Image(systemName: "bell")
+                        .overlay(alignment: .topTrailing) {
+                            if alerts.unreadCount > 0 {
+                                Text(alerts.unreadCount > 99 ? "99+" : "\(alerts.unreadCount)")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Capsule().fill(.red))
+                                    .offset(x: 7, y: -5)
+                            }
+                        }
+                }
+                .accessibilityLabel("Notifications")
+
+                Button {
                     showTabOrder = true
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
@@ -72,6 +93,9 @@ struct TopicListContent: View {
                 }
                 .accessibilityLabel("Settings")
             }
+        }
+        .sheet(isPresented: $showAlerts) {
+            AlertsView()
         }
         .sheet(isPresented: $showTabOrder) {
             NavigationStack {
@@ -87,6 +111,16 @@ struct TopicListContent: View {
         }
         .task(id: mode) {
             await model.loadIfNeeded(mode: mode, session: session)
+            guard case .unread = mode else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled else { return }
+                await model.refresh(session: session)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, case .unread = mode else { return }
+            Task { await model.refresh(session: session) }
         }
         .onAppear {
             guard hasAppeared else {

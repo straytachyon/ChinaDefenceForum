@@ -1,12 +1,24 @@
 import Foundation
 
 enum AppConfig {
-    /// The forum this client talks to. All requests are relative to this URL.
-    static let baseURL = URL(string: "https://www.china-defense.com/smf/")!
+    /// Production forum. Debug builds can point at a test server with the launch
+    /// argument `-baseURL http://rpi4b.realm/smf/`.
+    static let productionBaseURL = URL(string: "https://www.china-defense.com/smf/")!
+
+    static var baseURL: URL {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-baseURL"), index + 1 < args.count,
+           let url = URL(string: args[index + 1]) {
+            return url
+        }
+        #endif
+        return productionBaseURL
+    }
 
     static let forumName = "China Defense Forum"
-    static let forumHost = "www.china-defense.com"
-    static let forumDisplayURL = URL(string: "https://www.china-defense.com/smf/index.php")!
+    static var forumHost: String { baseURL.host ?? "www.china-defense.com" }
+    static var forumDisplayURL: URL { baseURL.appendingPathComponent("index.php") }
 
     static let userAgent =
         "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 " +

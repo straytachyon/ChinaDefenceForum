@@ -456,6 +456,33 @@ struct TopicParsingTests {
         #expect(!bold.isEmpty)
     }
 
+    @Test func parsesAlertPopupCountAndList() {
+        let popup = """
+        <div class="alerts_unread">
+            <a class="unread_notify"><span class="alert_text">One</span></a>
+            <div class="unread_notify"><span class="alert_text">Two</span></div>
+        </div>
+        """
+        #expect(SMFParser.parseAlertPopupCount(popup) == 2)
+        #expect(SMFParser.parseAlertPopupCount("<div class=\"no_unread\">No unread alerts.</div>") == 0)
+
+        let list = """
+        <table id="alerts">
+            <tr class="windowbg">
+                <td class="alert_text">
+                    <div><a href="https://example.com/topic=1.msg2">deepseek_test</a> liked your post</div>
+                    <time class="alert_inline_time">Today at 11:00</time>
+                </td>
+                <td class="alert_time"><time>Today at 11:00</time></td>
+            </tr>
+        </table>
+        """
+        let alerts = SMFParser.parseAlerts(list)
+        #expect(alerts.count == 1)
+        #expect(alerts[0].text.contains("liked your post"))
+        #expect(alerts[0].url != nil)
+    }
+
     @Test func buildsMultipartAttachmentBody() {
         let body = SMFClient.multipartBody(
             fields: ["post": "Post", "subject": "Test"],

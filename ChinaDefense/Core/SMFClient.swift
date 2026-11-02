@@ -293,6 +293,21 @@ actor SMFClient {
         return Int(digits)
     }
 
+    func fetchAlerts() async throws -> AlertsSnapshot {
+        let (popup, _) = try await get(url("action=profile;area=alerts_popup"))
+        try ensureLoggedIn(popup)
+        let count = SMFParser.parseAlertPopupCount(popup)
+
+        let (list, _) = try await get(url("action=profile;area=showalerts"))
+        try ensureLoggedIn(list)
+        return AlertsSnapshot(unread: count, items: SMFParser.parseAlerts(list))
+    }
+
+    func toggleLike(url: URL) async throws {
+        let (html, _) = try await get(url)
+        try ensureLoggedIn(html)
+    }
+
     func markAllRead(_ url: URL) async throws {
         let (html, _) = try await get(url)
         try ensureLoggedIn(html)
