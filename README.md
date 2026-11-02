@@ -1,6 +1,6 @@
-# China Defence Forum — iOS client
+# China Defense Forum — iOS client
 
-A native SwiftUI client for the **China Defence Forum** at
+A native SwiftUI client for the **China Defense Forum** at
 `https://www.china-defense.com/smf/` (Simple Machines Forum 2.1.8).
 
 The forum has no API and every page — including the board index — is behind a login,
@@ -65,7 +65,7 @@ bodies, quotes, code blocks and images.
 
 - Xcode 27 or later (the project uses the Xcode 27 project format)
 - iOS / iPadOS 18.0+
-- A China Defence Forum account
+- A China Defense Forum account
 
 ## Build
 

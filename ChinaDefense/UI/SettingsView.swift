@@ -99,7 +99,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Version", value: Bundle.main.shortVersion)
-                    Text("Unofficial reader for China Defence Forum. Not affiliated with the forum or its operators.")
+                    Text("Unofficial reader for China Defense Forum. Not affiliated with the forum or its operators.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } header: {
@@ -127,7 +127,7 @@ struct SettingsView: View {
                 WebSheet(url: AppConfig.forumDisplayURL)
             }
             .confirmationDialog(
-                "Sign out of China Defence Forum?",
+                "Sign out of China Defense Forum?",
                 isPresented: $confirmSignOut,
                 titleVisibility: .visible
             ) {
