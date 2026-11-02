@@ -121,6 +121,11 @@ struct ForumTopic: Identifiable, Hashable, Sendable {
     var firstUnreadMessageID: Int? = nil
 }
 
+struct ResolvedTopic: Sendable {
+    var topic: ForumTopic
+    var targetMessageID: Int?
+}
+
 struct TopicListPage: Sendable {
     var topics: [ForumTopic]
     var boardID: Int?
@@ -212,12 +217,15 @@ struct TopicPage: Sendable {
 
 struct ForumAlert: Identifiable, Hashable, Sendable {
     let id: String
-    let text: String
-    let time: String
-    let url: URL?
+    var text: String
+    var time: String
+    var url: URL?
+    var isUnread: Bool
+    var markReadURL: URL?
 }
 
 struct AlertsSnapshot: Sendable {
     let unread: Int
     let items: [ForumAlert]
+    let markAllReadURL: URL?
 }

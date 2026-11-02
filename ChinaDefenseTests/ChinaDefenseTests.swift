@@ -462,6 +462,7 @@ struct TopicParsingTests {
             <a class="unread_notify"><span class="alert_text">One</span></a>
             <div class="unread_notify"><span class="alert_text">Two</span></div>
         </div>
+        <a href="https://example.com/index.php?action=profile;area=notification;sa=markread;token=abc">Mark all read</a>
         """
         #expect(SMFParser.parseAlertPopupCount(popup) == 2)
         #expect(SMFParser.parseAlertPopupCount("<div class=\"no_unread\">No unread alerts.</div>") == 0)
@@ -474,13 +475,20 @@ struct TopicParsingTests {
                     <time class="alert_inline_time">Today at 11:00</time>
                 </td>
                 <td class="alert_time"><time>Today at 11:00</time></td>
+                <td class="alert_buttons">
+                    <a href="https://example.com/index.php?action=profile;u=1;area=showalerts;do=read;aid=31047;token=abc">Mark read</a>
+                    <a href="https://example.com/index.php?action=profile;area=showalerts;alert=31047;">View</a>
+                </td>
             </tr>
         </table>
         """
         let alerts = SMFParser.parseAlerts(list)
         #expect(alerts.count == 1)
         #expect(alerts[0].text.contains("liked your post"))
-        #expect(alerts[0].url != nil)
+        #expect(alerts[0].url?.absoluteString.contains("alert=31047") == true)
+        #expect(alerts[0].isUnread)
+        #expect(alerts[0].markReadURL?.absoluteString.contains("do=read") == true)
+        #expect(SMFParser.parseAlertMarkAllURL(popup)?.absoluteString.contains("sa=markread") == true)
     }
 
     @Test func buildsMultipartAttachmentBody() {
@@ -587,3 +595,7 @@ struct LoginFormTests {
         #expect(form?.attr("action") == "https://www.china-defense.com/smf/index.php?action=login2")
     }
 }
+
+
+
+

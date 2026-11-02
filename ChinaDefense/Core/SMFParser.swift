@@ -437,16 +437,56 @@ enum SMFParser {
 
     static func parseAlerts(_ html: String) -> [ForumAlert] {
         let document = HTMLParser.parse(html)
-        return document.allClasses("windowbg").enumerated().compactMap { index, row in
+        let table = document.all(where: { $0.tag == "table" && $0.id == "alerts" }).first
+        let rows = (table ?? document).all(where: { $0.hasClass("windowbg") })
+        return rows.enumerated().compactMap { index, row in
             guard let textNode = row.firstClass("alert_text") else { return nil }
             let text = textNode.firstTag("div")?.textContent ?? textNode.textContent
             guard !text.isEmpty else { return nil }
             let time = row.firstClass("alert_time")?.textContent
                 ?? row.firstClass("alert_inline_time")?.textContent
                 ?? ""
-            let url = textNode.allTags("a").first?.href.flatMap { AppConfig.resolve($0) }
-            return ForumAlert(id: "\(index)-\(text)", text: text, time: time, url: url)
+
+            let markLink = row.allTags("a").first(where: {
+                let href = $0.href ?? ""
+                return href.contains("area=showalerts")
+                    && (href.contains("do=read") || href.contains("do=unread"))
+            })
+            let markHref = markLink?.href ?? ""
+            let isUnread = markHref.contains("do=read")
+            let alertID = capture("[;&]aid=(\\d+)", in: markHref)?.dropFirst().first
+                ?? "\(index)"
+            let viewLink = row.allTags("a").first(where: {
+                let href = $0.href ?? ""
+                return href.contains("area=showalerts") && href.contains("alert=")
+            })
+            let topicLink = row.allTags("a").first(where: {
+                let href = $0.href ?? ""
+                return href.contains("topic=") || href.contains("msg=")
+            })
+            let url = (viewLink ?? topicLink)?.href.flatMap { AppConfig.resolve($0) }
+
+            return ForumAlert(
+                id: alertID,
+                text: text,
+                time: time,
+                url: url,
+                isUnread: isUnread,
+                markReadURL: markLink?.href.flatMap { AppConfig.resolve($0) }
+            )
         }
+    }
+
+    static func messageID(fromHTML html: String) -> Int? {
+        capture("msg=(\\d+)", in: html).flatMap { Int($0[1]) }
+    }
+
+    static func parseAlertMarkAllURL(_ html: String) -> URL? {
+        let document = HTMLParser.parse(html)
+        return document.all(where: {
+            $0.tag == "a" && ($0.href?.contains("area=notification") ?? false)
+                && ($0.href?.contains("sa=markread") ?? false)
+        }).first?.href.flatMap { AppConfig.resolve($0) }
     }
 
     // MARK: - Pagination

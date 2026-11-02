@@ -38,6 +38,7 @@ actor SMFClient {
 
     private let baseURL: URL
     private let session: URLSession
+    private let redirectDelegate = SMFRedirectDelegate()
 
     init(baseURL: URL = AppConfig.baseURL) {
         self.baseURL = baseURL
@@ -53,7 +54,11 @@ actor SMFClient {
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         ]
-        self.session = URLSession(configuration: configuration)
+        self.session = URLSession(
+            configuration: configuration,
+            delegate: redirectDelegate,
+            delegateQueue: nil
+        )
     }
 
     // MARK: - Public API
@@ -181,6 +186,36 @@ actor SMFClient {
         return page
     }
 
+    func resolveTopic(from url: URL) async throws -> ResolvedTopic {
+        let (html, finalURL) = try await get(url)
+        try ensureLoggedIn(html)
+        let text = finalURL.absoluteString + " " + url.absoluteString
+        guard let topicID = Self.number(after: "topic=", in: text) else {
+            throw SMFError.parsing("the notification did not point to a topic")
+        }
+        let page = SMFParser.parseTopic(html, topicID: topicID, start: 0)
+        let target = Self.number(after: "msg", in: text)
+            ?? SMFParser.messageID(fromHTML: html)
+        let first = page.posts.first
+        let last = page.posts.last
+        let topic = ForumTopic(
+            id: topicID,
+            title: page.title.isEmpty ? "Thread" : page.title,
+            author: first?.author ?? "",
+            replies: 0,
+            views: 0,
+            lastPostText: last?.dateText ?? "",
+            isUnread: false,
+            isSticky: false,
+            isLocked: false,
+            pageCount: max(1, page.maxStart / max(page.perPage, 1) + 1),
+            boardID: page.boardID,
+            lastMessageID: target ?? last?.id,
+            firstUnreadMessageID: nil
+        )
+        return ResolvedTopic(topic: topic, targetMessageID: target)
+    }
+
     func fetchPostForm(topicID: Int? = nil, boardID: Int? = nil, quoteMessageID: Int? = nil) async throws -> PostFormInfo {
         let query: String
         if let topicID {
@@ -300,7 +335,11 @@ actor SMFClient {
 
         let (list, _) = try await get(url("action=profile;area=showalerts"))
         try ensureLoggedIn(list)
-        return AlertsSnapshot(unread: count, items: SMFParser.parseAlerts(list))
+        return AlertsSnapshot(
+            unread: count,
+            items: SMFParser.parseAlerts(list),
+            markAllReadURL: SMFParser.parseAlertMarkAllURL(popup)
+        )
     }
 
     func toggleLike(url: URL) async throws {
@@ -309,6 +348,11 @@ actor SMFClient {
     }
 
     func markAllRead(_ url: URL) async throws {
+        let (html, _) = try await get(url)
+        try ensureLoggedIn(html)
+    }
+
+    func markAlertRead(_ url: URL) async throws {
         let (html, _) = try await get(url)
         try ensureLoggedIn(html)
     }
@@ -399,5 +443,31 @@ actor SMFClient {
             if !text.isEmpty { return text }
         }
         return nil
+    }
+}
+
+
+/// SMF sometimes redirects an alert's "view" link to an absolute `http://`
+/// URL. ATS blocks that before the app can follow it, so upgrade China Defense
+/// Forum redirects to HTTPS.
+private final class SMFRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard let url = request.url,
+              url.scheme == "http",
+              url.host?.contains("china-defense.com") == true,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            completionHandler(request)
+            return
+        }
+        components.scheme = "https"
+        var upgraded = request
+        upgraded.url = components.url
+        completionHandler(upgraded)
     }
 }

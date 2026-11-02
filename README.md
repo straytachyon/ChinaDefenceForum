@@ -33,8 +33,9 @@ pages. Logins, sessions and cookies stay between the app and the forum.
 - **Likes** — posts show SMF's like count and a heart; tap to like or unlike
   (when the forum has likes enabled and your group is allowed to use them).
 - **Notifications** — the bell in the list toolbar shows the unread SMF alert count
-  and opens a native list of quotes, mentions and likes; "View All" opens SMF's
-  full alerts page.
+  and opens a native list of quotes, mentions and likes. Tapping a notification
+  marks it read and opens its post inside the app. You can mark one notification
+  read from its checkmark, or mark every notification read from the toolbar.
 - **Live unread** — the Unread tab refreshes every minute while the app is open and
   when the app returns to the foreground.
 - **Reorderable board tabs** — the ↑↓ button in the list toolbar (or Settings →

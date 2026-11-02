@@ -151,23 +151,28 @@ final class TopicModel {
     private var pageSize = 20
     private var didLoad = false
 
-    init(topic: ForumTopic) {
+    init(topic: ForumTopic, targetMessageID: Int? = nil) {
         topicID = topic.id
         title = topic.title
 
-        if topic.isUnread, let firstUnread = topic.firstUnreadMessageID {
+        let requestedMessageID = targetMessageID
+        if let requestedMessageID {
+            self.targetMessageID = requestedMessageID
+            queryMessageID = requestedMessageID
+            jumpToNew = false
+        } else if topic.isUnread, let firstUnread = topic.firstUnreadMessageID {
             // The unread row names the exact first unread post; requesting it
             // directly makes SMF return the page holding that message.
-            targetMessageID = firstUnread
+            self.targetMessageID = firstUnread
             queryMessageID = firstUnread
             jumpToNew = false
         } else if topic.isUnread {
-            targetMessageID = topic.lastMessageID
+            self.targetMessageID = topic.lastMessageID
             queryMessageID = nil
             jumpToNew = true
         } else {
             // Fully read: open at the newest post instead of page one.
-            targetMessageID = topic.lastMessageID
+            self.targetMessageID = topic.lastMessageID
             queryMessageID = topic.lastMessageID
             jumpToNew = false
         }
