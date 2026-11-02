@@ -37,7 +37,7 @@ enum DemoMode {
 
     private static let boardIndexHTML = """
     <div id="top_section"><ul id="top_info">
-        <li class="welcome">Welcome to <strong>China Defense Forum</strong>.</li>
+        <li class="welcome">Welcome to <strong>China Defence Forum</strong>.</li>
         <li><a href="?action=unread">Unread Posts <span class="amt">7</span></a></li>
         <li><a href="?action=profile;u=42">observer <span class="amt">2</span></a></li>
     </ul></div>

@@ -4,7 +4,7 @@ enum AppConfig {
     /// The forum this client talks to. All requests are relative to this URL.
     static let baseURL = URL(string: "https://www.china-defense.com/smf/")!
 
-    static let forumName = "China Defense Forum"
+    static let forumName = "China Defence Forum"
     static let forumHost = "www.china-defense.com"
     static let forumDisplayURL = URL(string: "https://www.china-defense.com/smf/index.php")!
 

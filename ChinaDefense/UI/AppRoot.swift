@@ -74,7 +74,7 @@ struct LaunchView: View {
             VStack(spacing: 18) {
                 AppMark(size: 88)
                 VStack(spacing: 4) {
-                    Text("China Defense Forum")
+                    Text("China Defence Forum")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
