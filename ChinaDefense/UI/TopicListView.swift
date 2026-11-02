@@ -81,13 +81,6 @@ struct TopicListContent: View {
                 }
                 .accessibilityLabel("Notifications")
 
-                Button {
-                    showTabOrder = true
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                }
-                .accessibilityLabel("Arrange tabs")
-
                 Button(action: onShowSettings) {
                     Image(systemName: "gearshape")
                 }
