@@ -149,6 +149,7 @@ struct TopicListPage: Sendable {
 
 enum PostBlock: Hashable, Sendable {
     case text(AttributedString)
+    case quote(AttributedString)
     case code(String)
     case image(URL)
     case video(String)

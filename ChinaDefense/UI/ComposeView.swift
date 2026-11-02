@@ -420,6 +420,8 @@ private struct PreviewSheet: View {
                                 .textSelection(.enabled)
                                 .lineSpacing(3)
                                 .fixedSize(horizontal: false, vertical: true)
+                        case .quote(let text):
+                            QuoteBlockView(text: text)
                         case .code(let code):
                             CodeBlockView(code: code)
                         case .image(let url):

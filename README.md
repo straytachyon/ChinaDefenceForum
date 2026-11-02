@@ -30,8 +30,11 @@ pages. Logins, sessions and cookies stay between the app and the forum.
 - **File attachments** — the paperclip in the editor attaches files to a reply or new
   topic (multiple files, 25 MB each); they upload with the post as SMF attachments.
   Attachments are listed in the composer and Preview shows their names.
-- **Likes** — posts show SMF's like count and a heart; tap to like or unlike
-  (when the forum has likes enabled and your group is allowed to use them).
+- **Likes** — every post shows a heart and its like count; tap to like or unlike.
+  The forum can forbid liking for a membergroup; in that case the count is still
+  shown and the heart is disabled.
+- **Quoted posts** — quotes render as their own card with a rounded border and a
+  coloured left bar, instead of blending into the reply text.
 - **Notifications** — the bell in the list toolbar shows the unread SMF alert count
   and opens a native list of quotes, mentions and likes. Tapping a notification
   marks it read and opens its post inside the app. You can mark one notification

@@ -10,6 +10,7 @@ struct TopicDetailView: View {
     @State private var showReply = false
     @State private var quotingPost: ForumPost?
     @State private var isLandscape = false
+    @State private var showLikeDenied = false
 
     /// Phones go edge-to-edge in both orientations; iPad keeps a readable column
     /// until it is turned to landscape.
@@ -75,7 +76,8 @@ struct TopicDetailView: View {
                                 },
                                 onLike: { liked in
                                     Task { await model.toggleLike(liked, session: session) }
-                                }
+                                },
+                                onLikeDenied: { showLikeDenied = true }
                             )
                             .id(post.id)
                         }
@@ -192,6 +194,11 @@ struct TopicDetailView: View {
                     Task { await model.reloadAfterPost(messageID: messageID, session: session) }
                 }
             }
+        }
+        .alert("Likes Unavailable", isPresented: $showLikeDenied) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your forum account’s membergroup isn’t allowed to like posts. An administrator can enable likes for your group in the forum’s Likes settings.")
         }
         .sheet(item: $quotingPost) { quoted in
             ComposeView(mode: .reply(topic, quoteMessageID: quoted.id)) { outcome in

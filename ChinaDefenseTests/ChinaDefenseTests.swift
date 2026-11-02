@@ -456,6 +456,19 @@ struct TopicParsingTests {
         #expect(!bold.isEmpty)
     }
 
+    @Test func rendersQuotesAsBorderedBlocks() {
+        let content = PostRenderer.render(html: """
+        <blockquote><div class="quoteheader">Quote from: vincent</div><div class="quote">Original quoted text</div></blockquote>
+        <p>Reply after the quote.</p>
+        """)
+        let quoteIndex = content.blocks.firstIndex {
+            if case .quote = $0 { return true }
+            return false
+        }
+        #expect(quoteIndex != nil)
+        #expect(content.text.characters.contains("Original quoted text"))
+    }
+
     @Test func parsesAlertPopupCountAndList() {
         let popup = """
         <div class="alerts_unread">

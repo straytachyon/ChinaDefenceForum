@@ -14,6 +14,7 @@ struct PostCard: View {
     var trailingInset: CGFloat = 0
     var onQuote: ((ForumPost) -> Void)?
     var onLike: ((ForumPost) -> Void)?
+    var onLikeDenied: (() -> Void)?
 
     private var galleryURLs: [URL] {
         var urls: [URL] = []
@@ -58,24 +59,25 @@ struct PostCard: View {
 
                 Spacer(minLength: 0)
 
-                if post.canLike || post.likeCount > 0 {
-                    Button {
+                Button {
+                    if post.canLike {
                         onLike?(post)
-                    } label: {
-                        HStack(spacing: 2) {
-                            Image(systemName: post.youLike ? "heart.fill" : "heart")
-                            if post.likeCount > 0 {
-                                Text("\(post.likeCount)").monospacedDigit()
-                            }
-                        }
-                        .font(.caption)
-                        .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
-                        .frame(minWidth: 30, minHeight: 28)
+                    } else {
+                        onLikeDenied?()
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!post.canLike || onLike == nil)
-                    .accessibilityLabel(post.youLike ? "Unlike post" : "Like post")
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: post.youLike ? "heart.fill" : "heart")
+                        Text("\(post.likeCount)").monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
+                    .frame(minWidth: 30, minHeight: 28)
                 }
+                .buttonStyle(.plain)
+                .disabled(onLike == nil && onLikeDenied == nil)
+                .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
+                .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
 
                 if let onQuote {
                     Button {
@@ -112,6 +114,10 @@ struct PostCard: View {
                                 .textSelection(.enabled)
                                 .tint(AppTheme.accent)
                                 .fixedSize(horizontal: false, vertical: true)
+
+                        case .quote(let text):
+                            QuoteBlockView(text: text)
+
                         case .code(let code):
                             CodeBlockView(code: code)
 
@@ -181,6 +187,38 @@ struct PostCard: View {
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.accent)
         }
+    }
+}
+
+struct QuoteBlockView: View {
+    @Environment(AppSettings.self) private var settings
+    let text: AttributedString
+
+    var body: some View {
+        Text(text.scaledForPostText(settings.postTextScale))
+            .textSelection(.enabled)
+            .tint(AppTheme.accent)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 8)
+            .padding(.leading, 13)
+            .padding(.trailing, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(AppTheme.accent.opacity(0.75))
+                    .frame(width: 3)
+                    .padding(.vertical, 7)
+                    .padding(.leading, 5)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.18), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

@@ -47,6 +47,11 @@ enum PostRenderer {
         static let name = "postFontSize"
     }
 
+    struct QuoteDepthAttribute: AttributedStringKey {
+        typealias Value = Int
+        static let name = "quoteDepth"
+    }
+
     private struct Style {
         var bold = false
         var italic = false
@@ -369,7 +374,31 @@ enum PostRenderer {
 
         private mutating func flushTextBlock() {
             guard !result.characters.isEmpty else { return }
-            blocks.append(.text(result))
+
+            var buffer = AttributedString()
+            var bufferIsQuote = false
+            var started = false
+
+            for run in result.runs {
+                let isQuote = (run[QuoteDepthAttribute.self] ?? 0) > 0
+                let piece = AttributedString(result[run.range])
+
+                if !started {
+                    buffer = piece
+                    bufferIsQuote = isQuote
+                    started = true
+                } else if isQuote == bufferIsQuote {
+                    buffer += piece
+                } else {
+                    blocks.append(bufferIsQuote ? .quote(buffer) : .text(buffer))
+                    buffer = piece
+                    bufferIsQuote = isQuote
+                }
+            }
+
+            if !buffer.characters.isEmpty {
+                blocks.append(bufferIsQuote ? .quote(buffer) : .text(buffer))
+            }
             result = AttributedString()
         }
 
@@ -463,6 +492,7 @@ enum PostRenderer {
             }
 
             container[PostFontSizeAttribute.self] = Double(size)
+            container[QuoteDepthAttribute.self] = style.quoteDepth
 
             if let link = style.link {
                 container.link = link
@@ -498,7 +528,7 @@ enum PostRenderer {
             var combined = AttributedString()
             for block in blocks {
                 switch block {
-                case .text(let text):
+                case .text(let text), .quote(let text):
                     combined += text
                 case .code(let code):
                     if !combined.characters.isEmpty {
