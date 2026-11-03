@@ -66,6 +66,8 @@ struct PostCard: View {
 
                 Spacer(minLength: 0)
 
+                likeControls
+
                 if let onQuote {
                     Button {
                         onQuote(post)
@@ -140,7 +142,6 @@ struct PostCard: View {
                 PostImageGrid(urls: post.content.images, gallery: galleryURLs)
             }
 
-            likeFooter
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, leadingInset)
@@ -152,23 +153,13 @@ struct PostCard: View {
         )
     }
 
-    private var likeFooter: some View {
-        HStack(spacing: 14) {
+    private var likeControls: some View {
+        HStack(spacing: 2) {
             if isOwnPost {
-                if post.likeCount > 0 {
-                    Button {
-                        onShowLikes?(post)
-                    } label: {
-                        Label(likesLabel, systemImage: "heart.fill")
-                            .foregroundStyle(AppTheme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(post.likesViewURL == nil)
-                    .accessibilityLabel("\(likesLabel), show who liked this post")
-                } else {
-                    Label(likesLabel, systemImage: "heart")
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
+                Image(systemName: post.likeCount > 0 ? "heart.fill" : "heart")
+                    .foregroundStyle(post.likeCount > 0 ? AppTheme.accent : AppTheme.secondaryText)
+                    .frame(width: 24, height: 28)
+                    .accessibilityLabel("\(likesCountLabel) received")
             } else {
                 Button {
                     if post.canLike {
@@ -177,41 +168,34 @@ struct PostCard: View {
                         onLikeDenied?()
                     }
                 } label: {
-                    Label(post.youLike ? "Unlike" : "Like",
-                          systemImage: post.youLike ? "heart.fill" : "heart")
+                    Image(systemName: post.youLike ? "heart.fill" : "heart")
                         .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
+                        .frame(width: 24, height: 28)
                 }
                 .buttonStyle(.plain)
                 .disabled(onLike == nil && onLikeDenied == nil)
                 .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
                 .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
-
-                Button {
-                    onShowLikes?(post)
-                } label: {
-                    HStack(spacing: 3) {
-                        Text(likesLabel)
-                        if post.likeCount > 0 {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
-                        }
-                    }
-                    .foregroundStyle(post.likeCount > 0 ? AppTheme.accent : AppTheme.secondaryText)
-                }
-                .buttonStyle(.plain)
-                .disabled(post.likeCount == 0 || post.likesViewURL == nil)
-                .accessibilityLabel("\(likesLabel), show who liked this post")
             }
 
-            Spacer(minLength: 0)
+            Button {
+                onShowLikes?(post)
+            } label: {
+                Text("\(post.likeCount)").monospacedDigit()
+                    .foregroundStyle(post.likeCount > 0 ? AppTheme.accent : AppTheme.secondaryText)
+                    .frame(minWidth: 12, minHeight: 28)
+            }
+            .buttonStyle(.plain)
+            .disabled(post.likeCount == 0 || post.likesViewURL == nil)
+            .accessibilityLabel("\(likesCountLabel), show who liked this post")
         }
         .font(.caption)
-        .padding(.top, 2)
     }
 
-    private var likesLabel: String {
+    private var likesCountLabel: String {
         post.likeCount == 1 ? "1 like" : "\(post.likeCount) likes"
     }
+
 
     private var avatar: some View {
         Group {
