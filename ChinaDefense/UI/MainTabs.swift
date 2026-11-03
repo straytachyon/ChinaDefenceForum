@@ -26,6 +26,10 @@ struct MainTabs: View {
             .onChange(of: session.categories) { _, _ in
                 validateSelection()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .topicDidClose)) { _ in
+                guard session.user != nil else { return }
+                Task { await session.refreshBoards() }
+            }
             .task {
                 while !Task.isCancelled {
                     await alerts.refresh(session: session)

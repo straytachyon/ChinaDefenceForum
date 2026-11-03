@@ -4,6 +4,7 @@ import WebKit
 struct PostCard: View {
     @Environment(\.openURL) private var openURL
     @Environment(AppSettings.self) private var settings
+    @Environment(Session.self) private var session
 
     let post: ForumPost
     /// Used to hide subjects that only repeat the thread title ("Re: …").
@@ -15,6 +16,11 @@ struct PostCard: View {
     var onQuote: ((ForumPost) -> Void)?
     var onLike: ((ForumPost) -> Void)?
     var onLikeDenied: (() -> Void)?
+
+    private var isOwnPost: Bool {
+        guard let id = post.authorID, let me = session.user?.id else { return false }
+        return id == me
+    }
 
     private var galleryURLs: [URL] {
         var urls: [URL] = []
@@ -59,25 +65,38 @@ struct PostCard: View {
 
                 Spacer(minLength: 0)
 
-                Button {
-                    if post.canLike {
-                        onLike?(post)
-                    } else {
-                        onLikeDenied?()
+                if isOwnPost {
+                    if post.likeCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "heart.fill")
+                            Text("\(post.likeCount)").monospacedDigit()
+                        }
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(minWidth: 30, minHeight: 28)
+                        .accessibilityLabel("\(post.likeCount) likes")
                     }
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: post.youLike ? "heart.fill" : "heart")
-                        Text("\(post.likeCount)").monospacedDigit()
+                } else {
+                    Button {
+                        if post.canLike {
+                            onLike?(post)
+                        } else {
+                            onLikeDenied?()
+                        }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Image(systemName: post.youLike ? "heart.fill" : "heart")
+                            Text("\(post.likeCount)").monospacedDigit()
+                        }
+                        .font(.caption)
+                        .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
+                        .frame(minWidth: 30, minHeight: 28)
                     }
-                    .font(.caption)
-                    .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
-                    .frame(minWidth: 30, minHeight: 28)
+                    .buttonStyle(.plain)
+                    .disabled(onLike == nil && onLikeDenied == nil)
+                    .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
+                    .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
                 }
-                .buttonStyle(.plain)
-                .disabled(onLike == nil && onLikeDenied == nil)
-                .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
-                .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
 
                 if let onQuote {
                     Button {
@@ -103,6 +122,7 @@ struct PostCard: View {
                 Text(subject)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
+                    .textSelection(.enabled)
             }
 
             if !post.content.blocks.isEmpty {
@@ -192,6 +212,7 @@ struct PostCard: View {
 
 struct QuoteBlockView: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(Session.self) private var session
     let text: AttributedString
 
     var body: some View {
@@ -225,6 +246,7 @@ struct QuoteBlockView: View {
 struct CodeBlockView: View {
     let code: String
     @Environment(AppSettings.self) private var settings
+    @Environment(Session.self) private var session
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -364,15 +386,39 @@ struct ImagePreview: View {
 
             TabView(selection: $index) {
                 ForEach(Array(urls.enumerated()), id: \.offset) { offset, url in
-                    ZoomableImage(url: url, zoomed: $zoomed) { dismiss() }
-                        .tag(offset)
+                    ZoomableImage(
+                        url: url,
+                        zoomed: $zoomed,
+                        onTap: { dismiss() },
+                        onDragChanged: { translation in
+                            guard !zoomed else { return }
+                            dragOffset = max(0, translation)
+                        },
+                        onDragEnded: { translation in
+                            guard !zoomed else { return }
+                            if translation > 120 {
+                                dismiss()
+                            } else {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                    dragOffset = 0
+                                }
+                            }
+                        }
+                    )
+                    .tag(offset)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: urls.count > 1 ? .always : .never))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
             .ignoresSafeArea()
             .offset(y: dragOffset)
-            .simultaneousGesture(dismissDrag)
+            .task {
+                await withTaskGroup(of: Void.self) { group in
+                    for url in urls {
+                        group.addTask { _ = await RemoteImageLoader.load(url) }
+                    }
+                }
+            }
 
             VStack {
                 HStack {
@@ -386,6 +432,22 @@ struct ImagePreview: View {
                     }
 
                     Spacer()
+
+                    Button {
+                        Task {
+                            if let image = await RemoteImageLoader.load(urls[index]) {
+                                UIPasteboard.general.image = image
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "doc.on.doc.fill")
+                            .font(.title3)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .white.opacity(0.18))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Copy image")
 
                     Button {
                         dismiss()
@@ -406,35 +468,14 @@ struct ImagePreview: View {
             }
         }
     }
-
-    /// Downward drag closes the viewer; horizontal drags still page.
-    private var dismissDrag: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                guard !zoomed,
-                      abs(value.translation.height) > abs(value.translation.width) else { return }
-                dragOffset = max(0, value.translation.height)
-            }
-            .onEnded { value in
-                guard !zoomed else { return }
-                let shouldDismiss = value.translation.height > 120
-                    || value.predictedEndTranslation.height > 220
-                if shouldDismiss {
-                    dismiss()
-                } else {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                        dragOffset = 0
-                    }
-                }
-            }
-    }
 }
 
-/// One page of the photo viewer: pinch with two fingers to zoom (1×–5×).
 private struct ZoomableImage: View {
     let url: URL
     @Binding var zoomed: Bool
     let onTap: () -> Void
+    let onDragChanged: (CGFloat) -> Void
+    let onDragEnded: (CGFloat) -> Void
 
     @State private var image: UIImage?
     @State private var failed = false
@@ -442,7 +483,12 @@ private struct ZoomableImage: View {
     var body: some View {
         Group {
             if let image {
-                NativeZoomableImage(image: image, onTap: onTap) { isZoomed in
+                NativeZoomableImage(
+                    image: image,
+                    onTap: onTap,
+                    onDragChanged: onDragChanged,
+                    onDragEnded: onDragEnded
+                ) { isZoomed in
                     zoomed = isZoomed
                 }
             } else if failed {
@@ -464,10 +510,11 @@ private struct ZoomableImage: View {
     }
 }
 
-/// Native UIScrollView zooming: smooth panning, pinch zoom and momentum.
 private struct NativeZoomableImage: UIViewRepresentable {
     let image: UIImage
     let onTap: () -> Void
+    let onDragChanged: (CGFloat) -> Void
+    let onDragEnded: (CGFloat) -> Void
     let onZoomChanged: (Bool) -> Void
 
     func makeUIView(context: Context) -> ZoomingScrollView {
@@ -479,26 +526,67 @@ private struct NativeZoomableImage: UIViewRepresentable {
 
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped))
         scroll.imageView.addGestureRecognizer(tap)
+
+        let dismissPan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDismissPan))
+        dismissPan.delegate = context.coordinator
+        dismissPan.cancelsTouchesInView = false
+        scroll.addGestureRecognizer(dismissPan)
+        context.coordinator.dismissPan = dismissPan
         return scroll
     }
 
     func updateUIView(_ scroll: ZoomingScrollView, context: Context) {
         context.coordinator.onTap = onTap
+        context.coordinator.onDragChanged = onDragChanged
+        context.coordinator.onDragEnded = onDragEnded
         context.coordinator.onZoomChanged = onZoomChanged
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap, onZoomChanged: onZoomChanged)
+        Coordinator(onTap: onTap, onDragChanged: onDragChanged, onDragEnded: onDragEnded, onZoomChanged: onZoomChanged)
     }
 
-    final class Coordinator: NSObject, UIScrollViewDelegate {
+    final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         var onTap: () -> Void
+        var onDragChanged: (CGFloat) -> Void
+        var onDragEnded: (CGFloat) -> Void
         var onZoomChanged: (Bool) -> Void
         weak var scrollView: ZoomingScrollView?
+        weak var dismissPan: UIPanGestureRecognizer?
 
-        init(onTap: @escaping () -> Void, onZoomChanged: @escaping (Bool) -> Void) {
+        init(onTap: @escaping () -> Void,
+             onDragChanged: @escaping (CGFloat) -> Void,
+             onDragEnded: @escaping (CGFloat) -> Void,
+             onZoomChanged: @escaping (Bool) -> Void) {
             self.onTap = onTap
+            self.onDragChanged = onDragChanged
+            self.onDragEnded = onDragEnded
             self.onZoomChanged = onZoomChanged
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer === dismissPan else { return true }
+            guard let scrollView, scrollView.zoomScale <= 1.01 else { return false }
+            let velocity = (gestureRecognizer as? UIPanGestureRecognizer)?.velocity(in: gestureRecognizer.view) ?? .zero
+            return velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            true
+        }
+
+        @objc func handleDismissPan(_ gesture: UIPanGestureRecognizer) {
+            guard let scrollView, scrollView.zoomScale <= 1.01 else { return }
+            let translation = gesture.translation(in: gesture.view).y
+            switch gesture.state {
+            case .changed:
+                onDragChanged(translation)
+            case .ended, .cancelled:
+                onDragEnded(translation)
+            default:
+                break
+            }
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
@@ -610,14 +698,20 @@ struct YouTubeEmbedView: UIViewRepresentable {
 /// Loads post pictures with the forum's cookies and a Referer, then lays them out
 /// with their real aspect ratio (AsyncImage collapsed to zero height inside cards).
 enum RemoteImageLoader {
+    private static let cache = NSCache<NSURL, UIImage>()
+
     static func load(_ url: URL) async -> UIImage? {
+        if let cached = cache.object(forKey: url as NSURL) { return cached }
+
         var request = URLRequest(url: url)
         request.setValue("https://www.china-defense.com/smf/", forHTTPHeaderField: "Referer")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse,
-                  (200..<300).contains(http.statusCode) else { return nil }
-            return UIImage(data: data)
+                  (200..<300).contains(http.statusCode),
+                  let image = UIImage(data: data) else { return nil }
+            cache.setObject(image, forKey: url as NSURL)
+            return image
         } catch {
             return nil
         }
@@ -639,6 +733,13 @@ struct RemoteImage<Failure: View, Loading: View>: View {
                     .resizable()
                     .aspectRatio(image.size, contentMode: .fit)
                     .frame(maxWidth: .infinity)
+                    .contextMenu {
+                        Button {
+                            UIPasteboard.general.image = image
+                        } label: {
+                            Label("Copy Image", systemImage: "doc.on.doc")
+                        }
+                    }
             } else if didFail {
                 failure()
             } else {

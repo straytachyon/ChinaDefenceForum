@@ -126,10 +126,16 @@ struct TopicListContent: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .topicDidClose)) { notification in
-            guard case .unread = mode else { return }
-            if let id = notification.object as? Int {
-                model.removeTopic(id: id)
-                session.reportUnreadCount(model.topics.count)
+            guard case .unread = mode, let id = notification.object as? Int else { return }
+            model.removeTopic(id: id)
+            if let badge = session.unreadBadge {
+                session.reportUnreadCount(max(0, badge - 1))
+            }
+            Task {
+                // Give SMF a moment to persist the read state, then re-check the
+                // list and the authoritative unread total from the board index.
+                try? await Task.sleep(for: .seconds(1))
+                await model.refresh(session: session)
             }
         }
     }

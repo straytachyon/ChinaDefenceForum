@@ -11,6 +11,7 @@ struct TopicDetailView: View {
     @State private var quotingPost: ForumPost?
     @State private var isLandscape = false
     @State private var showLikeDenied = false
+    @State private var didReportClose = false
 
     /// Phones go edge-to-edge in both orientations; iPad keeps a readable column
     /// until it is turned to landscape.
@@ -145,6 +146,8 @@ struct TopicDetailView: View {
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear {
+            guard !didReportClose else { return }
+            didReportClose = true
             NotificationCenter.default.post(name: .topicDidClose, object: topic.id)
         }
         .toolbar {
