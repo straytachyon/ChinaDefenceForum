@@ -12,6 +12,7 @@ struct TopicDetailView: View {
     @State private var isLandscape = false
     @State private var showLikeDenied = false
     @State private var likesPost: ForumPost?
+    @State private var editingPost: ForumPost?
     @State private var didReportClose = false
 
     /// Phones go edge-to-edge in both orientations; iPad keeps a readable column
@@ -68,21 +69,8 @@ struct TopicDetailView: View {
                         .padding(.top, 40)
                     } else {
                         ForEach(model.posts) { post in
-                            PostCard(
-                                post: post,
-                                topicTitle: model.title,
-                                leadingInset: landscapeInsets.left,
-                                trailingInset: landscapeInsets.right,
-                                onQuote: { quoted in
-                                    quotingPost = quoted
-                                },
-                                onLike: { liked in
-                                    Task { await model.toggleLike(liked, session: session) }
-                                },
-                                onLikeDenied: { showLikeDenied = true },
-                                onShowLikes: { post in likesPost = post }
-                            )
-                            .id(post.id)
+                            postCard(post)
+                                .id(post.id)
                         }
 
                         if model.isLoadingMore {
@@ -190,31 +178,42 @@ struct TopicDetailView: View {
             safari = WebLink(url: url)
             return .handled
         })
-        .sheet(item: $safari) { link in
-            WebSheet(url: link.url)
-        }
-        .sheet(isPresented: $showReply) {
-            ComposeView(mode: .reply(topic, quoteMessageID: nil)) { outcome in
-                if case .posted(_, let messageID) = outcome {
-                    Task { await model.reloadAfterPost(messageID: messageID, session: session) }
-                }
+        .modifier(TopicSheetsModifier(
+            topic: topic,
+            safari: $safari,
+            showReply: $showReply,
+            likesPost: $likesPost,
+            editingPost: $editingPost,
+            quotingPost: $quotingPost,
+            showLikeDenied: $showLikeDenied,
+            onPost: { messageID in
+                Task { await model.reloadAfterPost(messageID: messageID, session: session) }
             }
-        }
-        .sheet(item: $likesPost) { post in
-            PostLikesView(post: post)
-        }
-        .alert("Likes Unavailable", isPresented: $showLikeDenied) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Your forum account’s membergroup isn’t allowed to like posts. An administrator can enable likes for your group in the forum’s Likes settings.")
-        }
-        .sheet(item: $quotingPost) { quoted in
-            ComposeView(mode: .reply(topic, quoteMessageID: quoted.id)) { outcome in
-                if case .posted(_, let messageID) = outcome {
-                    Task { await model.reloadAfterPost(messageID: messageID, session: session) }
-                }
+        ))
+    }
+
+    private func postCard(_ post: ForumPost) -> some View {
+        PostCard(
+            post: post,
+            topicTitle: model.title,
+            leadingInset: landscapeInsets.left,
+            trailingInset: landscapeInsets.right,
+            onQuote: { quoted in
+                quotingPost = quoted
+            },
+            onLike: { liked in
+                Task { await model.toggleLike(liked, session: session) }
+            },
+            onLikeDenied: {
+                showLikeDenied = true
+            },
+            onShowLikes: { likedPost in
+                likesPost = likedPost
+            },
+            onEdit: { editablePost in
+                editingPost = editablePost
             }
-        }
+        )
     }
 
     private var paginationBar: some View {
@@ -311,5 +310,47 @@ struct TopicDetailView: View {
               let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = scene.keyWindow else { return (0, 0) }
         return (window.safeAreaInsets.left, window.safeAreaInsets.right)
+    }
+}
+
+
+private struct TopicSheetsModifier: ViewModifier {
+    let topic: ForumTopic
+    @Binding var safari: WebLink?
+    @Binding var showReply: Bool
+    @Binding var likesPost: ForumPost?
+    @Binding var editingPost: ForumPost?
+    @Binding var quotingPost: ForumPost?
+    @Binding var showLikeDenied: Bool
+    let onPost: (Int?) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $safari) { link in
+                WebSheet(url: link.url)
+            }
+            .sheet(isPresented: $showReply) {
+                ComposeView(mode: .reply(topic, quoteMessageID: nil)) { outcome in
+                    if case .posted(_, let messageID) = outcome { onPost(messageID) }
+                }
+            }
+            .sheet(item: $likesPost) { post in
+                PostLikesView(post: post)
+            }
+            .sheet(item: $editingPost) { post in
+                ComposeView(mode: .edit(topic, post)) { outcome in
+                    if case .posted(_, let messageID) = outcome { onPost(messageID) }
+                }
+            }
+            .sheet(item: $quotingPost) { quoted in
+                ComposeView(mode: .reply(topic, quoteMessageID: quoted.id)) { outcome in
+                    if case .posted(_, let messageID) = outcome { onPost(messageID) }
+                }
+            }
+            .alert("Likes Unavailable", isPresented: $showLikeDenied) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your forum account’s membergroup isn’t allowed to like posts. An administrator can enable likes for your group in the forum’s Likes settings.")
+            }
     }
 }

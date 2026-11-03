@@ -410,6 +410,9 @@ enum SMFParser {
         }
         if likeCount == 0 && youLike { likeCount = 1 }
         let likesViewURL = likeCountNode?.firstTag("a")?.href.flatMap { AppConfig.resolve($0) }
+        let editURL = wrapper.all(where: {
+            $0.tag == "a" && ($0.href?.contains("action=post;msg=") ?? false)
+        }).first?.href.flatMap { AppConfig.resolve($0) }
 
         return ForumPost(
             id: postID,
@@ -426,7 +429,8 @@ enum SMFParser {
             canLike: canLike,
             youLike: youLike,
             likeURL: likeURL,
-            likesViewURL: likesViewURL
+            likesViewURL: likesViewURL,
+            editURL: editURL
         )
     }
 

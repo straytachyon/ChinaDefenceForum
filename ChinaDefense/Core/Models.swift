@@ -187,6 +187,7 @@ struct ForumPost: Identifiable, Sendable {
     var youLike: Bool = false
     var likeURL: URL? = nil
     var likesViewURL: URL? = nil
+    var editURL: URL? = nil
 
     var profileURL: URL? {
         guard let authorID, authorID > 0 else { return nil }

@@ -240,6 +240,15 @@ actor SMFClient {
 
     /// Sends the editor contents. `preview` uses SMF's own preview endpoint, which
     /// renders the BBCode without creating a post.
+    func fetchEditForm(url: URL) async throws -> PostFormInfo {
+        let (html, _) = try await get(url)
+        try ensureLoggedIn(html)
+        guard let form = SMFParser.parsePostForm(html) else {
+            throw SMFError.parsing("the edit form could not be read")
+        }
+        return form
+    }
+
     func submitPost(form: PostFormInfo, subject: String, message: String, preview: Bool,
                     attachments: [AttachmentUpload] = []) async throws -> PostOutcome {
         var fields = form.fields

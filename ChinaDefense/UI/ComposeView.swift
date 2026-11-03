@@ -68,7 +68,7 @@ struct ComposeView: View {
                     if model.isSubmitting {
                         ProgressView()
                     } else {
-                        Button("Post") {
+                        Button(model.submitTitle) {
                             Task { await post() }
                         }
                         .disabled(!canPost)

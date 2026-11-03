@@ -17,6 +17,7 @@ struct PostCard: View {
     var onLike: ((ForumPost) -> Void)?
     var onLikeDenied: (() -> Void)?
     var onShowLikes: ((ForumPost) -> Void)?
+    var onEdit: ((ForumPost) -> Void)?
 
     private var isOwnPost: Bool {
         guard let id = post.authorID, let me = session.user?.id else { return false }
@@ -79,6 +80,19 @@ struct PostCard: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Quote post")
+                }
+
+                if post.editURL != nil, let onEdit {
+                    Button {
+                        onEdit(post)
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .frame(width: 30, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit post")
                 }
 
                 if let number = post.postNumber {

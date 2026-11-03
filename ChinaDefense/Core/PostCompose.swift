@@ -21,6 +21,7 @@ final class PostComposer {
     enum Mode {
         case newTopic(BoardTarget)
         case reply(ForumTopic, quoteMessageID: Int?)
+        case edit(ForumTopic, ForumPost)
     }
 
     struct Preview {
@@ -49,13 +50,24 @@ final class PostComposer {
         return false
     }
 
+    var submitTitle: String {
+        if case .edit = mode { return "Save" }
+        return "Post"
+    }
+
     var navigationTitle: String {
-        isNewTopic ? "New Topic" : "Reply"
+        switch mode {
+        case .newTopic: return "New Topic"
+        case .reply: return "Reply"
+        case .edit: return "Edit Post"
+        }
     }
 
     var topicTitle: String {
-        if case .reply(let topic, _) = mode { return topic.title }
-        return ""
+        switch mode {
+        case .reply(let topic, _), .edit(let topic, _): return topic.title
+        default: return ""
+        }
     }
 
     var boardName: String? {
@@ -82,6 +94,11 @@ final class PostComposer {
                 loaded = try await client.fetchPostForm(boardID: board.id)
             case .reply(let topic, let quoteMessageID):
                 loaded = try await client.fetchPostForm(topicID: topic.id, quoteMessageID: quoteMessageID)
+            case .edit(_, let post):
+                guard let url = post.editURL else {
+                    throw SMFError.parsing("this post cannot be edited")
+                }
+                loaded = try await client.fetchEditForm(url: url)
             }
 
             form = loaded
