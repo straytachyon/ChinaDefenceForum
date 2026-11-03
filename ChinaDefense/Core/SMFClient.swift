@@ -328,6 +328,12 @@ actor SMFClient {
         return Int(digits)
     }
 
+    func fetchPostLikers(url: URL) async throws -> [PostLiker] {
+        let (html, _) = try await get(url)
+        try ensureLoggedIn(html)
+        return SMFParser.parsePostLikers(html)
+    }
+
     func fetchAlerts() async throws -> AlertsSnapshot {
         let (popup, _) = try await get(url("action=profile;area=alerts_popup"))
         try ensureLoggedIn(popup)

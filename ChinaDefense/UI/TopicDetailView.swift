@@ -11,6 +11,7 @@ struct TopicDetailView: View {
     @State private var quotingPost: ForumPost?
     @State private var isLandscape = false
     @State private var showLikeDenied = false
+    @State private var likesPost: ForumPost?
     @State private var didReportClose = false
 
     /// Phones go edge-to-edge in both orientations; iPad keeps a readable column
@@ -78,7 +79,8 @@ struct TopicDetailView: View {
                                 onLike: { liked in
                                     Task { await model.toggleLike(liked, session: session) }
                                 },
-                                onLikeDenied: { showLikeDenied = true }
+                                onLikeDenied: { showLikeDenied = true },
+                                onShowLikes: { post in likesPost = post }
                             )
                             .id(post.id)
                         }
@@ -197,6 +199,9 @@ struct TopicDetailView: View {
                     Task { await model.reloadAfterPost(messageID: messageID, session: session) }
                 }
             }
+        }
+        .sheet(item: $likesPost) { post in
+            PostLikesView(post: post)
         }
         .alert("Likes Unavailable", isPresented: $showLikeDenied) {
             Button("OK", role: .cancel) {}

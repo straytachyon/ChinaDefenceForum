@@ -402,12 +402,14 @@ enum SMFParser {
         let canLike = likeAnchor != nil
         let youLike = likeAnchor?.textContent.lowercased().contains("unlike") ?? false
         let likeURL = likeAnchor?.href.flatMap { AppConfig.resolve($0) }
-        let likeCountText = wrapper.all(where: { $0.hasClass("like_count") }).first?.textContent ?? ""
+        let likeCountNode = wrapper.all(where: { $0.hasClass("like_count") }).first
+        let likeCountText = likeCountNode?.textContent ?? ""
         var likeCount = 0
         if let match = capture("(\\d[\\d,]*)", in: likeCountText) {
             likeCount = Int(match[1].replacingOccurrences(of: ",", with: "")) ?? 0
         }
         if likeCount == 0 && youLike { likeCount = 1 }
+        let likesViewURL = likeCountNode?.firstTag("a")?.href.flatMap { AppConfig.resolve($0) }
 
         return ForumPost(
             id: postID,
@@ -423,8 +425,42 @@ enum SMFParser {
             likeCount: likeCount,
             canLike: canLike,
             youLike: youLike,
-            likeURL: likeURL
+            likeURL: likeURL,
+            likesViewURL: likesViewURL
         )
+    }
+
+    // MARK: - Likers
+
+    static func parsePostLikers(_ html: String) -> [PostLiker] {
+        let document = HTMLParser.parse(html)
+        let items = document.all(where: { $0.hasClass("like_profile") }).isEmpty
+            ? document.all(where: { $0.id == "likes" || $0.firstClass("like_profile") != nil })
+            : document.all(where: { $0.hasClass("like_profile") })
+
+        var likers: [PostLiker] = []
+        for node in items {
+            let profile = node.hasClass("like_profile") ? node : node.firstClass("like_profile") ?? node
+            let link = profile.firstTag("a")
+            let name = link?.textContent ?? ""
+            guard !name.isEmpty else { continue }
+            let id = link?.href.flatMap { href -> String? in
+                guard let match = capture("u=(\\d+)", in: href) else { return nil }
+                return match[1]
+            } ?? name
+            let row = profile.parent ?? node.parent ?? node
+            let avatar = row.allTags("img").first { $0.hasClass("avatar") }?.src
+            likers.append(PostLiker(
+                id: id,
+                name: name,
+                group: profile.firstClass("description")?.textContent ?? "",
+                time: row.firstClass("like_time")?.textContent
+                    ?? row.all(where: { $0.hasClass("like_time") }).first?.textContent ?? "",
+                avatarURL: avatar.flatMap { AppConfig.resolve($0) },
+                profileURL: link?.href.flatMap { AppConfig.resolve($0) }
+            ))
+        }
+        return likers
     }
 
     // MARK: - Alerts

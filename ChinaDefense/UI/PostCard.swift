@@ -16,6 +16,7 @@ struct PostCard: View {
     var onQuote: ((ForumPost) -> Void)?
     var onLike: ((ForumPost) -> Void)?
     var onLikeDenied: (() -> Void)?
+    var onShowLikes: ((ForumPost) -> Void)?
 
     private var isOwnPost: Bool {
         guard let id = post.authorID, let me = session.user?.id else { return false }
@@ -64,39 +65,6 @@ struct PostCard: View {
                 }
 
                 Spacer(minLength: 0)
-
-                if isOwnPost {
-                    if post.likeCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "heart.fill")
-                            Text("\(post.likeCount)").monospacedDigit()
-                        }
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .frame(minWidth: 30, minHeight: 28)
-                        .accessibilityLabel("\(post.likeCount) likes")
-                    }
-                } else {
-                    Button {
-                        if post.canLike {
-                            onLike?(post)
-                        } else {
-                            onLikeDenied?()
-                        }
-                    } label: {
-                        HStack(spacing: 2) {
-                            Image(systemName: post.youLike ? "heart.fill" : "heart")
-                            Text("\(post.likeCount)").monospacedDigit()
-                        }
-                        .font(.caption)
-                        .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
-                        .frame(minWidth: 30, minHeight: 28)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(onLike == nil && onLikeDenied == nil)
-                    .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
-                    .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
-                }
 
                 if let onQuote {
                     Button {
@@ -171,6 +139,8 @@ struct PostCard: View {
             if !post.content.images.isEmpty {
                 PostImageGrid(urls: post.content.images, gallery: galleryURLs)
             }
+
+            likeFooter
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, leadingInset)
@@ -180,6 +150,67 @@ struct PostCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+    }
+
+    private var likeFooter: some View {
+        HStack(spacing: 14) {
+            if isOwnPost {
+                if post.likeCount > 0 {
+                    Button {
+                        onShowLikes?(post)
+                    } label: {
+                        Label(likesLabel, systemImage: "heart.fill")
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(post.likesViewURL == nil)
+                    .accessibilityLabel("\(likesLabel), show who liked this post")
+                } else {
+                    Label(likesLabel, systemImage: "heart")
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+            } else {
+                Button {
+                    if post.canLike {
+                        onLike?(post)
+                    } else {
+                        onLikeDenied?()
+                    }
+                } label: {
+                    Label(post.youLike ? "Unlike" : "Like",
+                          systemImage: post.youLike ? "heart.fill" : "heart")
+                        .foregroundStyle(post.youLike ? AppTheme.accent : AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(onLike == nil && onLikeDenied == nil)
+                .accessibilityLabel(post.canLike ? (post.youLike ? "Unlike post" : "Like post") : "Likes unavailable")
+                .accessibilityHint(post.canLike ? "" : "Your forum group is not allowed to like posts.")
+
+                Button {
+                    onShowLikes?(post)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(likesLabel)
+                        if post.likeCount > 0 {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                    }
+                    .foregroundStyle(post.likeCount > 0 ? AppTheme.accent : AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(post.likeCount == 0 || post.likesViewURL == nil)
+                .accessibilityLabel("\(likesLabel), show who liked this post")
+            }
+
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .padding(.top, 2)
+    }
+
+    private var likesLabel: String {
+        post.likeCount == 1 ? "1 like" : "\(post.likeCount) likes"
     }
 
     private var avatar: some View {

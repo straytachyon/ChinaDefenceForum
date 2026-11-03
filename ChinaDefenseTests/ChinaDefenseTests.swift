@@ -469,6 +469,25 @@ struct TopicParsingTests {
         #expect(content.text.characters.contains("Original quoted text"))
     }
 
+    @Test func parsesWhoLikedAPost() {
+        let html = """
+        <body id="likes_popup"><div class="windowbg"><ul id="likes"><li>
+            <img class="avatar" src="https://example.com/avatar.png" alt="">
+            <span class="like_profile">
+                <a href="https://example.com/index.php?action=profile;u=131">xinhui</a>
+                <span class="description">Administrators</span>
+            </span>
+            <span class="floatright like_time">2026-11-01, 03:54:25</span>
+        </li></ul></div></body>
+        """
+        let likers = SMFParser.parsePostLikers(html)
+        #expect(likers.count == 1)
+        #expect(likers[0].name == "xinhui")
+        #expect(likers[0].group == "Administrators")
+        #expect(likers[0].time.contains("2026"))
+        #expect(likers[0].avatarURL != nil)
+    }
+
     @Test func parsesAlertPopupCountAndList() {
         let popup = """
         <div class="alerts_unread">
